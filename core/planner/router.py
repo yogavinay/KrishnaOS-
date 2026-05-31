@@ -49,15 +49,21 @@ User: "Create a new web project" -> {"agent": "KARNA", "intent": "create_project
 
     def route(self, user_input: str) -> Dict[str, Any]:
         """Classify intent and determine which agent handles it."""
-        # Try LLM-based routing first
+        # Fast keyword routing first (instant response)
+        result = self._keyword_route(user_input)
+
+        # If keyword routing found a specific agent, use it immediately
+        if result["agent"] != "KRISHNA":
+            return result
+
+        # For ambiguous inputs (defaulted to KRISHNA), try LLM routing
         if self.llm_client:
             try:
                 return self._llm_route(user_input)
             except Exception as e:
                 print(f"[ROUTER] ⚠️ LLM routing failed: {e}")
 
-        # Fallback: keyword-based routing
-        return self._keyword_route(user_input)
+        return result
 
     def _llm_route(self, user_input: str) -> Dict[str, Any]:
         """Route using Ollama LLM."""

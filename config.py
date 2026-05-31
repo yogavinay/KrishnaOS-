@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     # PostgreSQL
     database_url: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/mahabharata")
 
-    # Whisper
-    whisper_model: str = os.getenv("WHISPER_MODEL", "base")
+    # Whisper STT
+    whisper_model: str = os.getenv("WHISPER_MODEL", "base.en")
 
     # System
     user_name: str = os.getenv("USER_NAME", "Yogavinay")

@@ -28,7 +28,7 @@ class DharmaAgent:
         self.name = "DHARMA"
         self.status = "initializing"
         self.llm_client = None
-        self._current_session: Optional[Session] = None
+        self._current_session_id: Optional[int] = None
         print(f"[{self.name}] 🕉️ Initializing Memory & Personality Agent...")
 
     def initialize(self):
@@ -62,9 +62,11 @@ class DharmaAgent:
             )
             session.add(new_session)
             session.commit()
-            self._current_session = new_session
+            # Store only the ID to avoid detached instance errors
+            session_id = new_session.id
             session.close()
-            print(f"[{self.name}] 📝 New session started (ID: {new_session.id})")
+            self._current_session_id = session_id
+            print(f"[{self.name}] 📝 New session started (ID: {session_id})")
         except Exception as e:
             print(f"[{self.name}] ⚠️ Could not start session: {e}")
 
@@ -75,7 +77,7 @@ class DharmaAgent:
         try:
             session = db.get_session()
             conv = Conversation(
-                session_id=self._current_session.id if self._current_session else None,
+                session_id=self._current_session_id,
                 user_input=user_input,
                 agent_response=agent_response,
                 agent_used=agent_used,
@@ -86,8 +88,8 @@ class DharmaAgent:
             session.add(conv)
 
             # Update session interaction count
-            if self._current_session:
-                db_session = session.query(Session).filter_by(id=self._current_session.id).first()
+            if self._current_session_id:
+                db_session = session.query(Session).filter_by(id=self._current_session_id).first()
                 if db_session:
                     db_session.total_interactions = (db_session.total_interactions or 0) + 1
 
@@ -350,13 +352,13 @@ Examples:
     def end_session(self, summary: str = None):
         """End the current session with an LLM-generated summary."""
         try:
-            if self._current_session:
+            if self._current_session_id:
                 # Try to generate summary with LLM
                 if not summary and self.llm_client:
                     summary = self._generate_session_summary()
 
                 session = db.get_session()
-                db_session = session.query(Session).filter_by(id=self._current_session.id).first()
+                db_session = session.query(Session).filter_by(id=self._current_session_id).first()
                 if db_session:
                     db_session.end_time = datetime.datetime.utcnow()
                     db_session.is_active = False

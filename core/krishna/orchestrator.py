@@ -297,39 +297,49 @@ Do NOT wrap your response in <think> tags or show internal reasoning. Just respo
             return f"I encountered an error: {e}. Is Ollama running?"
 
     def voice_loop(self):
-        """Main voice interaction loop."""
-        print(f"\n[{self.name}] 🎤 Voice mode active. Say '{settings.wake_word}' or just speak.")
-        print(f"[{self.name}] ⌨️  Or type your message. Type 'quit' to exit.\n")
+        """Main interaction loop — pure live voice assistant mode."""
+        print(f"\n[{self.name}] 🎤 LIVE VOICE MODE ACTIVE. Just start speaking.")
+        print(f"[{self.name}] 🛑 Press Ctrl+C to stop the system and exit.\n")
 
+        import time
         while self.status == "active":
             try:
-                # Text input mode (for testing without mic)
-                user_input = input(f"\n🕉️  {settings.user_name} > ").strip()
-
-                if user_input.lower() in ["quit", "exit", "bye", "goodbye"]:
-                    self.tts.speak(f"Goodbye, {settings.user_name}. Until next time.")
-                    break
-
-                if user_input.lower() == "voice":
-                    # Switch to voice mode
-                    text = self.stt.listen_until_silence()
-                    if text:
-                        user_input = text
-                    else:
-                        print("[STT] No speech detected. Try again.")
-                        continue
-
-                if not user_input:
+                # Continuously listen (blocks until speech finishes)
+                text = self.stt.listen_continuous()
+                
+                if not text:
                     continue
 
+                # Filter out noise/hallucinations (added 'and', 'yeah', etc.)
+                if len(text.strip()) < 3 or text.strip().lower() in [
+                    ".", "you", "thank you.", "thanks.", "bye.",
+                    "the", "a", "i", "so", "um", "and", "yeah.", "yes."
+                ]:
+                    print(f"  ⚠️ Ignoring noise: \"{text}\"")
+                    continue
+                
+                user_input = text.strip()
+
+                # Voice commands to quit
+                if user_input.lower() in ["quit", "exit", "stop", "shutdown", "turn off system"]:
+                    self.tts.speak("Goodbye, shutting down voice mode.")
+                    break
+
+                # Process the input through KRISHNA
                 response = self.process_input(user_input)
+
+                # Speak the response synchronously so it doesn't record its own voice
                 self.tts.speak(response)
+                
+                # Small pause before listening again to avoid echo
+                time.sleep(0.5)
 
             except KeyboardInterrupt:
-                print("\n[KRISHNA] Interrupted.")
+                print(f"\n[{self.name}] Interrupted by user.")
                 break
             except Exception as e:
                 print(f"[{self.name}] ❌ Error: {e}")
+                time.sleep(2)
 
     def shutdown(self):
         """Graceful shutdown of all agents."""
